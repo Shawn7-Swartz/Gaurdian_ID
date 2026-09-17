@@ -1,0 +1,51 @@
+name: Deploy Android APK
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+jobs:
+  build_release:
+    name: Build and Release APK
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Java
+        uses: actions/setup-java@v3
+        with:
+          distribution: 'zulu'
+          java-version: '17'
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.19.x' # Or stable
+          channel: 'stable'
+
+      - name: Get dependencies
+        working-directory: ./frontend
+        run: flutter pub get
+
+      - name: Build APK
+        working-directory: ./frontend
+        run: flutter build apk --release
+
+      - name: Set Tag Name
+        run: echo "TAG_NAME=build-${{ github.run_number }}" >> $GITHUB_ENV
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ env.TAG_NAME }}
+          name: "Development Build ${{ env.TAG_NAME }}"
+          body: "Automated Android APK build from branch main (${{ github.sha }})."
+          files: frontend/build/app/outputs/flutter-apk/app-release.apk
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
